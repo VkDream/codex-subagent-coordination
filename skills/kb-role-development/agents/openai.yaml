@@ -1,0 +1,6 @@
+interface:
+  display_name: "02·开发"
+  short_description: "Implement and verify one complete authorized milestone"
+  default_prompt: "Use $kb-role-development to implement and verify the complete authorized milestone in one bounded pass."
+policy:
+  allow_implicit_invocation: true

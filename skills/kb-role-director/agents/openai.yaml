@@ -1,0 +1,6 @@
+interface:
+  display_name: "00·总监"
+  short_description: "Define and route one complete governed milestone"
+  default_prompt: "Use $kb-role-director to define, route, or close one complete project milestone."
+policy:
+  allow_implicit_invocation: true

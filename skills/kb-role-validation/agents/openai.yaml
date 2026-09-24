@@ -1,0 +1,6 @@
+interface:
+  display_name: "05·验证"
+  short_description: "Run one independent acceptance pass at the authorized level"
+  default_prompt: "Use $kb-role-validation to run one complete independent acceptance pass at the authorized evidence level."
+policy:
+  allow_implicit_invocation: true

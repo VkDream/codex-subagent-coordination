@@ -1,0 +1,6 @@
+interface:
+  display_name: "04·修复"
+  short_description: "Batch-fix verified findings within one milestone contract"
+  default_prompt: "Use $kb-role-remediation to batch-fix all verified findings within the current milestone contract."
+policy:
+  allow_implicit_invocation: true

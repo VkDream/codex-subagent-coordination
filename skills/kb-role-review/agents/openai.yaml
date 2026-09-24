@@ -1,0 +1,6 @@
+interface:
+  display_name: "03·审查"
+  short_description: "Independently review one complete milestone package"
+  default_prompt: "Use $kb-role-review to independently review the complete milestone contract or implementation package."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,18 @@
+# 示例片段：先核对当前 Codex 版本是否支持，再合并到已有配置。
+# 不要整份覆盖 config.toml；此文件不会自行启用角色。
+# 角色 TOML 保存在 agents/，加载方式以实际客户端为准。
+# 模型、推理、服务层和并发上限都需要在当前运行时确认。
+
+# 个人风格参考；按自己的偏好选择。
+# 这是顶层配置项，应放在 [agents] 等表之前。
+personality = "pragmatic"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 8
+default_subagent_model = "gpt-6-luna"
+default_subagent_reasoning_effort = "max"
+
+# 本文件只提供一个通用默认值。
+# 使用已配置角色时，以对应 agents/*.toml 的选择为参考，并核实当前运行时是否支持。
+# fast_mode 设置或模型字段都不证明 Fast/模型已在当前会话实际启用。

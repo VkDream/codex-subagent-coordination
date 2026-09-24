@@ -1,0 +1,93 @@
+{
+  "date": "2026-09-09",
+  "provenance": "Author local validation; sanitized aggregate summary; private raw runtime logs are not included.",
+  "scope": "one real current public-doc MCP search result plus explicitly synthetic protected negative cases; native field projection, no compression package",
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "max",
+  "serviceTier": "UNKNOWN",
+  "sample": {
+    "realSearches": 1,
+    "returnedHits": 3,
+    "totalMatches": 30,
+    "syntheticProtectedCases": true
+  },
+  "characters": {
+    "original": 28483,
+    "selected": 13234,
+    "reductionPct": 53.537197626654496
+  },
+  "answers": {
+    "baselineCorrect": 12,
+    "selectedCorrect": 12,
+    "total": 12,
+    "identical": true
+  },
+  "preservation": {
+    "allCanonicalContentsEqual": true,
+    "paginationEqual": true,
+    "protectedRelayUnchanged": true,
+    "permissionErrorUnchanged": true,
+    "protectedCodeUnchanged": true,
+    "questionsUnchanged": true
+  },
+  "usage": {
+    "baseline": [
+      {
+        "input_tokens": 41992,
+        "cached_input_tokens": 32512,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 366,
+        "reasoning_output_tokens": 264,
+        "total_tokens": 42358
+      },
+      {
+        "input_tokens": 50228,
+        "cached_input_tokens": 41728,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1242,
+        "reasoning_output_tokens": 983,
+        "total_tokens": 51470
+      }
+    ],
+    "selected": [
+      {
+        "input_tokens": 41985,
+        "cached_input_tokens": 32512,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 525,
+        "reasoning_output_tokens": 402,
+        "total_tokens": 42510
+      },
+      {
+        "input_tokens": 45887,
+        "cached_input_tokens": 41728,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1723,
+        "reasoning_output_tokens": 1482,
+        "total_tokens": 47610
+      }
+    ],
+    "postReadInput": {
+      "baseline": 50228,
+      "selected": 45887,
+      "reduction": 4341,
+      "reductionPct": 8.642589790555066
+    },
+    "postReadInputIncrement": {
+      "baseline": 8236,
+      "selected": 3902
+    },
+    "wholeExperimentRawTokens": {
+      "baseline": 93828,
+      "selected": 90120,
+      "reductionPct": 3.951912009208336
+    }
+  },
+  "limits": [
+    "Single real search sample plus synthetic negative cases, not a repeated multi-tool benchmark.",
+    "Initial input differs by 7 tokens; output and reasoning lengths vary.",
+    "Input increments include tool-call overhead.",
+    "Not an account-credit, invoice, or future-workflow saving guarantee.",
+    "Public aggregate values support arithmetic checks, not independent reproduction of private historical model counts."
+  ]
+}
