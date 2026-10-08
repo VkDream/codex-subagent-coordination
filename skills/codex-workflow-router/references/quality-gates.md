@@ -110,7 +110,7 @@ If the MCP tool is unavailable, report `MCP_UNAVAILABLE:Headroom`; package insta
 
 ### Optional Headroom evaluation note
 
-Optional setup, side effects, and evidence limits are described in `headroom-offline-evaluation.md`. This sharing package contains no prior environment's evaluation result. Re-check official documentation and runtime dependencies before any authorized evaluation or activation.
+Optional setup, side effects, and evidence limits are described in `headroom-offline-evaluation.md`. This sharing package contains no prior environment's evaluation result. Re-check official documentation and installed, resolved and running dependency versions before any authorized evaluation or activation.
 
 ## Review and closeout
 

@@ -2,6 +2,14 @@
 
 仅在 `00·总监` 生成、修订、批准、派发或收口会直接驱动 `02·开发`、`04·修复`、Kimi、DSH、DeepSeek、Qwen 等执行方修改工程、生成可运行候选、构建或运行的合同、开发计划、修复包、开发 MD 或执行提示词时读取。本规则不新增里程碑、角色页或 RUN。
 
+## 原生身份与页面身份
+
+本协议的授权、活动控制块、执行来源、revision、独立审查与累计预算对两种模式均有效。默认原生父子模式使用 DISPATCH_ID、RETURN_TARGET 和 APPROVED_DISPATCH_ID；本文件后续页面术语 RELAY_ID、RETURN_TO_THREAD_ID、APPROVED_RELAY_ID 在原生模式分别按这三个原生字段核对，不要求另造页面字段或页面 UUID。原生 APPROVED_DISPATCH_ID 必须指向实际有效的 03 回包；可跳过前审时仍为 NOT_REQUIRED，不能猜填批准。
+
+原生 03 及其他角色始终 final 返回直接父任务，所有下一角色建议由父任务调度，不按后文页面式直接接力发送。父任务只消费工具实际来源、项目、DISPATCH_ID、角色、合同 revision 与当前授权均相符的回包。页面协议仅在用户明确启用页面接力时使用原页面字段。
+
+长上下文换新实例只改变 DISPATCH_ID 并增加 CONTINUES_DISPATCH_ID，不改变合同 revision、有效批准、主 RUN、权限或累计修正预算；合同实质变化才按本协议更新 revision。迟到的旧派单结果不推进新派单。
+
 ## 唯一活动控制块
 
 可执行合同顶部必须保留以下唯一活动控制块；它是当前能否进入开发的唯一真值：
@@ -19,15 +27,21 @@ APPROVAL_STATUS=NONE|APPROVED_ACTIVE|NOT_REQUIRED|STALE
 DEVELOPMENT_ALLOWED=YES|NO
 ```
 
-字段缺失、值冲突、`APPROVED_REVISION != CONTRACT_REVISION`、强制前审路线的 `APPROVAL_UPDATE_ID` 未精确指向同一 `MASTER_RUN` 当前唯一有效的 `CONTRACT_GATE_UPDATE`、当前批准路线不是 `APPROVAL_STATUS=APPROVED_ACTIVE`，或任何状态无法唯一解释时，默认 `DEVELOPMENT_ALLOWED=NO`。历史审查与修订记录只能放在后文，不得让文件开头保留已失效的 READY/APPROVED。
+字段缺失、值冲突、`APPROVED_REVISION != CONTRACT_REVISION`、不满足下述“执行方接单门”中与实际执行方及 `PRE_REVIEW_REQUIRED` 对应的放行条件，或任何状态无法唯一解释时，默认 `DEVELOPMENT_ALLOWED=NO`。历史审查与修订记录只能放在后文，不得让文件开头保留已失效的 READY/APPROVED。
+
+## 直接接力与诊断评审
+
+当前有效批准属于精确合同 revision、范围和执行角色，不属于某次转发。已批准范围内角色按预置分支直接接力，不重复创建批准/前审或要求 00 转发；接收方仍核对下面的接单门。DIAGNOSIS_REVIEW 只检查根因与方案，不生成 CONTRACT_APPROVED，不写实现已审 revision，也不改变活动控制块。诊断/补诊沿用现有边界且实施已获准时，03 可直接交预定内部执行角色；尚未批准、需实质改变合同或命中强制前审时回 00 处理真实放行事项。
+
+修复页接收诊断评审时核对诊断针对的当前合同及已有批准；返修链补诊还保留之前实际执行/审查字段。不得要求未执行的诊断凭空填 CONTRACT_REVISION_EXECUTED/REVIEWED；也不得拿诊断评审替代首次合同前审、修改后的独立审查或外部执行强制批准。
 
 ## 作者自检与强制前审
 
-新 revision 先进入 `DRAFT` 且禁止开发。总监冻结前做一次有界作者自检：目标与非目标、当前物理基线、路径/白名单/权限、交付物和真实消费者、状态与资源所有者、并发/取消/超时、兼容/回滚、验证与负向场景。作者自检不能替代以下强制独立前审：
+新 revision 先进入 `DRAFT` 且禁止开发。总监只核对当前目标、范围、授权和验收是否相互一致，补齐放行字段，不重复执行角色的工程审查。以下情况仍独立前审：
 
 - 外部执行方将修改工程、生成可运行候选、构建或运行；
 - `PROCESS_DEPTH=ARCHITECTURAL`；
-- 新程序/服务/进程、共享状态或异步并发、资源生命周期、UAC/计划任务/服务控制、公共接口/持久化/权限安全、部署/迁移/回滚或外部系统写入。
+- 实质改变进程、共享状态或并发、资源所有权、权限安全、公共兼容、持久化、部署/迁移边界，且错误方案会造成具体安全、数据或外部副作用风险。沿既定边界完成局部修复，不因代码包含异步、状态或接口就自动追加前审。
 
 命中任一项时设置：
 
@@ -107,4 +121,4 @@ revision 字段必须有明确消费者，不能只写进回包：
 
 ## 主 RUN 更新边界
 
-前审回包后的状态变化只允许一次 `CONTRACT_GATE_UPDATE`：由 `00·总监` 在实现派发前，为该更新分配同一 `MASTER_RUN` 内唯一且稳定的 `APPROVAL_UPDATE_ID`，原位更新活动控制块和必要的修订合同正文，并追加一条携带同一 ID 与 `APPROVAL_STATUS=APPROVED_ACTIVE` 的紧凑 revision 裁决。不得另建 RUN、复用旧 revision 的更新 ID、粘贴完整回包、记录普通流水，或借此改写无关事实。实现或修复派发前，总监再次读取活动控制块；只有当前 revision 明确放行、`APPROVAL_STATUS=APPROVED_ACTIVE` 且 `APPROVAL_UPDATE_ID` 与当前有效更新一致才可发送。
+前审回包后的状态变化只允许一次 `CONTRACT_GATE_UPDATE`：由 `00·总监` 在实现派发前，为该更新分配同一 `MASTER_RUN` 内唯一且稳定的 `APPROVAL_UPDATE_ID`，原位更新活动控制块和必要的修订合同正文，并追加一条携带同一 ID 与 `APPROVAL_STATUS=APPROVED_ACTIVE` 的紧凑 revision 裁决。不得另建 RUN、复用旧 revision 的更新 ID、粘贴完整回包、记录普通流水，或借此改写无关事实。实现或修复派发前，总监再次读取活动控制块，按上方“执行方接单门”核对实际接收方、共同条件与对应前审分支，全部满足才可发送。

@@ -6,9 +6,16 @@
 # 个人风格参考；按自己的偏好选择。
 # 这是顶层配置项，应放在 [agents] 等表之前。
 personality = "pragmatic"
+model = "gpt-6-astra"
+model_reasoning_effort = "ultra"
+service_tier = "default"
+
+[features]
+fast_mode = true
 
 [agents]
 enabled = true
+# 本参考工作流全树执行上限8个，不含主任务；更低的运行时或合同限制优先。
 max_concurrent_threads_per_session = 8
 default_subagent_model = "gpt-6-luna"
 default_subagent_reasoning_effort = "max"

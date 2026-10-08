@@ -47,7 +47,51 @@ function scalars(fields) {
     else if (typeof value !== 'number' || !Number.isFinite(value)) reject('CALLBACK_FORMAT_INVALID', `${key} must be a string or finite number`);
   }
 }
-function identity(context, kind) {
+// Route plans are supplied by the original dispatch, never by the callback.
+// This validates routing only; the recipient still checks the live approval gate.
+function normalRoute(context, resultCode) {
+  if (context.routing === undefined || context.CALLBACK_MODE === 'METADATA_CORRECTION') {
+    return {CALLBACK_TARGET_THREAD_ID: context.RETURN_TO_THREAD_ID};
+  }
+  const plan = context.routing;
+  record(plan, 'routing'); record(plan.roles, 'routing.roles'); record(plan.onResult, 'routing.onResult');
+  const ids = new Set();
+  for (const [role, id] of Object.entries(plan.roles)) {
+    if (!(role === '00·总监' || Object.hasOwn(SKILLS, role)) || !UUID.test(id) || ids.has(id)) {
+      reject('CALLBACK_CONTEXT_INVALID', 'routing roles require distinct confirmed role/thread identities');
+    }
+    ids.add(id);
+  }
+  if (!UUID.test(context.HARD_STOP_RETURN_TO_THREAD_ID ?? '')) reject('CALLBACK_CONTEXT_INVALID', 'confirmed director is required for autonomous routing');
+  exact(plan.roles['00·总监'], context.HARD_STOP_RETURN_TO_THREAD_ID, 'routing director');
+  if (!UUID.test(plan.roles[context.ROLE] ?? '')) reject('CALLBACK_CONTEXT_INVALID', 'routing source role missing');
+  if (!Object.hasOwn(plan.onResult, resultCode)) reject('CALLBACK_CONTEXT_INVALID', 'result has no authorized route');
+  const role = plan.onResult[resultCode];
+  const allowed = context.ROLE === '03·审查'
+    ? (context.REVIEW_MODE === 'CONTRACT_REVIEW' ? ['00·总监']
+      : context.REVIEW_MODE === 'DIAGNOSIS_REVIEW' ? ['01·诊断', '02·开发', '04·修复', '00·总监']
+      : ['01·诊断', '04·修复', '05·验证', '00·总监'])
+    : context.ROLE === '01·诊断' ? ['03·审查', '00·总监']
+    : context.ROLE === '05·验证' ? ['01·诊断', '04·修复', '00·总监']
+    : ['03·审查', '00·总监'];
+  if (!allowed.includes(role) || !UUID.test(plan.roles[role] ?? '')) reject('CALLBACK_CONTEXT_INVALID', 'role transition not allowed/registered');
+  if (context.ROLE === '03·审查' && context.REVIEW_MODE === 'DIAGNOSIS_REVIEW') {
+    const destinations = {DIAGNOSIS_ACCEPTED: ['02·开发', '04·修复', '00·总监'], DIAGNOSIS_INCOMPLETE: ['01·诊断', '00·总监'], DIRECTOR_DECISION_REQUIRED: ['00·总监']};
+    if (!Object.hasOwn(destinations, resultCode) || !destinations[resultCode].includes(role)) reject('CALLBACK_CONTEXT_INVALID', 'diagnosis outcome conflicts with its destination');
+  }
+  if (context.REVIEW_MODE === 'DIAGNOSIS_REVIEW' && ['02·开发', '04·修复'].includes(role) && plan.implementationAuthorized !== true) {
+    reject('CALLBACK_CONTEXT_INVALID', 'diagnosis review cannot create implementation authority');
+  }
+  if (!Number.isSafeInteger(plan.retryUsed) || plan.retryUsed < 0 || !Number.isSafeInteger(plan.retryLimit) || plan.retryLimit < plan.retryUsed) {
+    reject('CALLBACK_CONTEXT_INVALID', 'explicit shared retry usage/limit required');
+  }
+  const retry = role === '01·诊断' || (role === '04·修复' &&
+    (context.ROLE === '05·验证' || (context.ROLE === '03·审查' && context.REVIEW_MODE === 'IMPLEMENTATION_REVIEW')));
+  const used = plan.retryUsed + Number(retry);
+  if (used > plan.retryLimit) reject('CALLBACK_RETRY_EXHAUSTED', 'return the unresolved batch to the director; do not reset or extend the budget');
+  return {CALLBACK_TARGET_THREAD_ID: plan.roles[role], CALLBACK_TARGET_ROLE: role, RELAY_RETRIES_USED: used};
+}
+function identity(context, kind, resultCode) {
   record(context, 'context');
   if (!Object.hasOwn(SKILLS, context.ROLE)) reject('CALLBACK_CONTEXT_INVALID', 'ROLE must be an exact 01–05 role');
   const ids = {};
@@ -59,10 +103,15 @@ function identity(context, kind) {
   if (kind === 'COMPLETE' && !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(ids.MASTER_RUN)) reject('CALLBACK_CONTEXT_INVALID', 'MASTER_RUN must be an absolute Windows path');
   // A rejected intake must still be able to report to the confirmed director even
   // when its normal return route is missing or corrupt.
-  const routeKey = kind === 'HARD_STOP' ? 'HARD_STOP_RETURN_TO_THREAD_ID' : 'RETURN_TO_THREAD_ID';
-  if (!UUID.test(context[routeKey] ?? '')) reject('CALLBACK_CONTEXT_INVALID', `${routeKey} must be an exact confirmed thread UUID`);
+  const route = kind === 'HARD_STOP'
+    ? {CALLBACK_TARGET_THREAD_ID: context.HARD_STOP_RETURN_TO_THREAD_ID}
+    : normalRoute(context, resultCode);
+  if (!UUID.test(route.CALLBACK_TARGET_THREAD_ID ?? '')) reject('CALLBACK_CONTEXT_INVALID', 'callback target must be an exact confirmed thread UUID');
+  if (kind === 'COMPLETE' && context.ROLE === '03·审查' && context.REVIEW_MODE === 'CONTRACT_REVIEW') {
+    exact(route.CALLBACK_TARGET_THREAD_ID, context.HARD_STOP_RETURN_TO_THREAD_ID, 'contract approval returns to director');
+  }
   if (context.ROLE === '03·审查' && kind === 'COMPLETE' &&
-      !['CONTRACT_REVIEW', 'IMPLEMENTATION_REVIEW'].includes(context.REVIEW_MODE)) {
+      !['CONTRACT_REVIEW', 'IMPLEMENTATION_REVIEW', 'DIAGNOSIS_REVIEW'].includes(context.REVIEW_MODE)) {
     reject('CALLBACK_CONTEXT_INVALID', '03 requires REVIEW_MODE from the dispatch');
   }
   const mode = context.CALLBACK_MODE ?? 'STANDARD';
@@ -71,12 +120,12 @@ function identity(context, kind) {
     ...ids, ROLE: context.ROLE,
     PRIMARY_SKILL: SKILLS[context.ROLE], CALLBACK_KIND: kind,
     CALLBACK_MODE: mode,
-    CALLBACK_TARGET_THREAD_ID: context[routeKey],
+    ...route,
     ...(context.ROLE === '03·审查' && context.REVIEW_MODE ? {REVIEW_MODE: context.REVIEW_MODE} : {}),
   };
 }
 function chainKeys(context) {
-  if (context.ROLE === '01·诊断') return [];
+  if (context.ROLE === '01·诊断' || (context.ROLE === '03·审查' && context.REVIEW_MODE === 'DIAGNOSIS_REVIEW')) return [];
   if (context.ROLE === '03·审查' && context.REVIEW_MODE === 'CONTRACT_REVIEW') return ['CONTRACT_REVISION_REVIEWED'];
   return [...CHAIN,
     ...(['03·审查', '05·验证'].includes(context.ROLE) ? ['CONTRACT_REVISION_REVIEWED'] : []),
@@ -85,7 +134,7 @@ function chainKeys(context) {
 function check(context, fields) {
   scalars(fields);
   if (!['COMPLETE', 'HARD_STOP'].includes(fields.CALLBACK_KIND)) reject('CALLBACK_FORMAT_INVALID', 'CALLBACK_KIND must be COMPLETE or HARD_STOP');
-  const bound = identity(context, fields.CALLBACK_KIND);
+  const bound = identity(context, fields.CALLBACK_KIND, fields.RESULT_CODE);
   for (const [key, value] of Object.entries(bound)) exact(fields[key], value, key);
   for (const key of FACTS) {
     if (key !== 'FIX_CYCLES') textValue(fields[key], key);
@@ -136,6 +185,10 @@ function check(context, fields) {
     if (!['FOCUSED', 'RISK_EXPANDED'].includes(fields.VALIDATION_BUDGET_ACTUAL)) reject('CALLBACK_FORMAT_INVALID', '02 requires VALIDATION_BUDGET_ACTUAL');
     textValue(fields.EXPAND_TRIGGER, 'EXPAND_TRIGGER');
   }
+  if (context.ROLE === '03·审查' && context.REVIEW_MODE === 'DIAGNOSIS_REVIEW' &&
+      !['DIAGNOSIS_ACCEPTED', 'DIAGNOSIS_INCOMPLETE', 'DIRECTOR_DECISION_REQUIRED'].includes(fields.RESULT_CODE)) {
+    reject('CALLBACK_FORMAT_INVALID', 'diagnosis review must not claim contract approval or implementation acceptance');
+  }
   if (context.ROLE === '03·审查' && context.REVIEW_MODE === 'CONTRACT_REVIEW' &&
       !['CONTRACT_APPROVED', 'CONTRACT_REVISION_REQUIRED'].includes(fields.RESULT_CODE)) {
     reject('CALLBACK_FORMAT_INVALID', 'contract review requires its canonical result code');
@@ -181,7 +234,7 @@ export function parseCapsule(prompt) {
 export function prepareCallback({context, fields}) {
   scalars(fields);
   if (!['COMPLETE', 'HARD_STOP'].includes(fields.CALLBACK_KIND)) reject('CALLBACK_FORMAT_INVALID', 'CALLBACK_KIND must be explicit');
-  const bound = identity(context, fields.CALLBACK_KIND);
+  const bound = identity(context, fields.CALLBACK_KIND, fields.RESULT_CODE);
   for (const [key, value] of Object.entries(bound)) {
     if (Object.hasOwn(fields, key)) exact(fields[key], value, key);
   }
